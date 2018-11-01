@@ -38,7 +38,7 @@ from mrcnn.visualize import display_instances
 import matplotlib.pyplot as plt
 
 # Root directory of the project
-ROOT_DIR = os.path.abspath("../../")
+ROOT_DIR = '/home/ec2-user/test-/'
 
 # Import Mask RCNN
 sys.path.append(ROOT_DIR)  # To find local version of the library
