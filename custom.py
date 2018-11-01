@@ -62,7 +62,7 @@ class CustomConfig(Config):
     Derives from the base Config class and overrides some values.
     """
     # Give the configuration a recognizable name
-    NAME = "lid"
+    NAME = "damage"
 
     # We use a GPU with 12GB memory, which can fit two images.
     # Adjust down if you use a smaller GPU.
@@ -75,7 +75,7 @@ class CustomConfig(Config):
     STEPS_PER_EPOCH = 100
 
     # Skip detections with < 90% confidence
-    DETECTION_MIN_CONFIDENCE = 0.90
+    DETECTION_MIN_CONFIDENCE = 0.85
 
 
 ############################################################
@@ -112,7 +112,7 @@ class CustomDataset(utils.Dataset):
         subset: Subset to load: train or val
         """
         # Add classes. We have only one class to add.
-        self.add_class("lid", 1, "lid")
+        #self.add_class("damage", 1, "damage")
 
         # Train or validation dataset?
         assert subset in ["train", "val", "queries"]
@@ -123,7 +123,7 @@ class CustomDataset(utils.Dataset):
                 image = skimage.io.imread(img.path)
                 height, width = image.shape[:2]
                 self.add_image(
-                    "lid",  ## for a single class just add the name here
+                    "part",  ## for a single class just add the name here
                     image_id = img.path,  # use file name as a unique image id
                     path = img.path,
                     width = width, height = height)
@@ -151,6 +151,8 @@ class CustomDataset(utils.Dataset):
         # The VIA tool saves images in the JSON even if they don't have any
         # annotations. Skip unannotated images.
         annotations = [a for a in annotations if a['regions']]
+		
+        classes = set()
 
         # Add images
         for a in annotations:
@@ -158,21 +160,27 @@ class CustomDataset(utils.Dataset):
             # Get the x, y coordinaets of points of the polygons that make up
             # the outline of each object instance. There are stores in the
             # shape_attributes (see json format above)
-            polygons = [r['shape_attributes'] for r in a['regions'].values()]
+            for r in a['regions'].values():
+                polygons = r['shape_attributes']
+                name = r['region_attributes']['part']
+			    
+                classes.add(name)
+				# load_mask() needs the image size to convert polygons to masks.
+				# Unfortunately, VIA doesn't include it in JSON, so we must read
+				# the image. This is only managable since the dataset is tiny.
+                image_path = os.path.join(dataset_dir, a['filename'])
+                image = skimage.io.imread(image_path)
+                height, width = image.shape[:2]
 
-            # load_mask() needs the image size to convert polygons to masks.
-            # Unfortunately, VIA doesn't include it in JSON, so we must read
-            # the image. This is only managable since the dataset is tiny.
-            image_path = os.path.join(dataset_dir, a['filename'])
-            image = skimage.io.imread(image_path)
-            height, width = image.shape[:2]
-
-            self.add_image(
-                "lid",  ## for a single class just add the name here
-                image_id=a['filename'],  # use file name as a unique image id
-                path=image_path,
-                width=width, height=height,
-                polygons=polygons)
+                self.add_image(
+             	    name,  ## for a single class just add the name here
+                    image_id = a['filename'],  # use file name as a unique image id
+                    path = image_path,
+                    width = width, height = height,
+                    polygons = polygons)
+					
+        for id, clas in enumerate(classes):
+            self.add_class(clas, id, clas)
 
     def load_mask(self, image_id):
         """Generate instance masks for an image.
@@ -183,7 +191,7 @@ class CustomDataset(utils.Dataset):
         """
         # If not a balloon dataset image, delegate to parent class.
         image_info = self.image_info[image_id]
-        if image_info["source"] != "lid":
+        if image_info["source"] != "damage":
             return super(self.__class__, self).load_mask(image_id)
         
         if 'polygons' not in self.image_info[image_id]:
@@ -206,7 +214,7 @@ class CustomDataset(utils.Dataset):
     def image_reference(self, image_id):
         """Return the path of the image."""
         info = self.image_info[image_id]
-        if info["source"] == "lid":
+        if info["source"] == "damage":
             return info["path"]
         else:
             super(self.__class__, self).image_reference(image_id)
