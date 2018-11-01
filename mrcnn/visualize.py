@@ -15,8 +15,6 @@ import colorsys
 
 import numpy as np
 from skimage.measure import find_contours
-import matplotlib
-matplotlib.use('agg')
 import matplotlib.pyplot as plt
 from matplotlib import patches,  lines
 from matplotlib.patches import Polygon
